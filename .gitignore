@@ -97,6 +97,7 @@ build/
 # agents
 .claude/
 .context/
+.zed.agentinfo.txt
 PLAN.md
 TASK.md
 CLAUDE.md

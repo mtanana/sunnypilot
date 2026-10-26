@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>headunitd test page</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header>
+    <h1>headunitd</h1>
+    <span id="conn" class="pill off">disconnected</span>
+    <label>rate
+      <select id="hz">
+        <option value="2">2 Hz</option>
+        <option value="10" selected>10 Hz</option>
+        <option value="20">20 Hz</option>
+      </select>
+    </label>
+    <span class="muted">seq <span id="seq">-</span></span>
+  </header>
+
+  <main>
+    <section class="card wide">
+      <h2>Alert</h2>
+      <div id="alert" class="alert">
+        <div data-field="engage.alertText1"></div>
+        <div class="muted" data-field="engage.alertText2"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Engagement</h2>
+      <dl>
+        <dt>openpilot</dt><dd data-field="engage.state"></dd>
+        <dt>enabled / active</dt><dd><span data-field="engage.enabled" data-format="bool"></span> / <span data-field="engage.active" data-format="bool"></span></dd>
+        <dt>MADS</dt><dd data-field="engage.mads.state"></dd>
+        <dt>MADS active</dt><dd data-field="engage.mads.active" data-format="bool"></dd>
+        <dt>personality</dt><dd data-field="engage.personality"></dd>
+        <dt>plan source</dt><dd data-field="plan.source"></dd>
+        <dt>SP source</dt><dd data-field="plan.sp.source"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Speed</h2>
+      <dl>
+        <dt>speed</dt><dd data-field="car.vEgo" data-format="speed"></dd>
+        <dt>set speed</dt><dd data-field="car.vCruiseCluster" data-format="kph"></dd>
+        <dt>accel</dt><dd data-field="car.aEgo" data-format="accel"></dd>
+        <dt>plan aTarget</dt><dd data-field="plan.aTarget" data-format="accel"></dd>
+        <dt>plan end speed</dt><dd data-field="plan.speeds" data-format="lastSpeed"></dd>
+        <dt>SP vTarget</dt><dd data-field="plan.sp.vTarget" data-format="speed"></dd>
+        <dt>speed limit</dt><dd data-field="plan.sp.speedLimit.final" data-format="speed"></dd>
+        <dt>gas / brake</dt><dd><span data-field="car.gasPressed" data-format="bool"></span> / <span data-field="car.brakePressed" data-format="bool"></span></dd>
+        <dt>allow throttle / brake</dt><dd><span data-field="plan.allowThrottle" data-format="bool"></span> / <span data-field="plan.allowBrake" data-format="bool"></span></dd>
+        <dt>gear</dt><dd data-field="car.gear"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Lead</h2>
+      <dl>
+        <dt>present</dt><dd data-field="lead.one.present" data-format="bool"></dd>
+        <dt>distance</dt><dd data-field="lead.one.dRel" data-format="dist"></dd>
+        <dt>wanted distance</dt><dd data-field="lead.desiredDistM" data-format="dist"></dd>
+        <dt>gap error</dt><dd data-field="lead.gapErrorM" data-format="dist"></dd>
+        <dt>time gap</dt><dd data-field="lead.timeGapS" data-format="sec"></dd>
+        <dt>lead speed</dt><dd data-field="lead.one.vLead" data-format="speed"></dd>
+        <dt>closing speed</dt><dd data-field="lead.one.vRel" data-format="speed"></dd>
+        <dt>distance std</dt><dd data-field="lead.modelDistStd" data-format="dist"></dd>
+        <dt>EyeSight bars</dt><dd data-field="car.distanceBars"></dd>
+        <dt>FCW</dt><dd data-field="plan.fcw" data-format="bool"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Steering</h2>
+      <dl>
+        <dt>angle</dt><dd data-field="steer.angleDeg" data-format="deg"></dd>
+        <dt>driver torque</dt><dd data-field="steer.torque"></dd>
+        <dt>EPS torque</dt><dd data-field="steer.torqueEps"></dd>
+        <dt>pressed</dt><dd data-field="steer.pressed" data-format="bool"></dd>
+        <dt>blinkers L / R</dt><dd><span data-field="steer.leftBlinker" data-format="bool"></span> / <span data-field="steer.rightBlinker" data-format="bool"></span></dd>
+        <dt>temp fault</dt><dd data-field="steer.faultTemporary" data-format="bool"></dd>
+        <dt>perm fault</dt><dd data-field="steer.faultPermanent" data-format="bool"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Driver monitoring</h2>
+      <dl>
+        <dt>policy</dt><dd data-field="dm.policy"></dd>
+        <dt>awareness</dt><dd data-field="dm.awarenessPercent" data-format="pct"></dd>
+        <dt>distracted</dt><dd data-field="dm.distracted" data-format="bool"></dd>
+        <dt>why</dt><dd data-field="dm.distractedTypes" data-format="list"></dd>
+        <dt>face</dt><dd data-field="dm.faceDetected" data-format="bool"></dd>
+        <dt>alert level</dt><dd data-field="dm.alertLevel"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Device</h2>
+      <dl>
+        <dt>thermal</dt><dd data-field="device.thermalStatus"></dd>
+        <dt>max temp</dt><dd data-field="device.maxTempC" data-format="temp"></dd>
+        <dt>CPU</dt><dd data-field="device.cpuUsagePercent" data-format="list"></dd>
+        <dt>memory</dt><dd data-field="device.memoryUsagePercent" data-format="pct"></dd>
+        <dt>GPU</dt><dd data-field="device.gpuUsagePercent" data-format="pct"></dd>
+        <dt>model time</dt><dd data-field="model.execTimeS" data-format="ms"></dd>
+        <dt>frame drops</dt><dd data-field="model.frameDropPerc" data-format="pct"></dd>
+        <dt>confidence</dt><dd data-field="model.confidence"></dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Top-down</h2>
+      <canvas id="topdown" width="320" height="480"></canvas>
+    </section>
+
+    <section class="card wide">
+      <h2>Video</h2>
+      <div class="controls">
+        <select id="camera">
+          <option value="road">road</option>
+          <option value="wide">wide</option>
+          <option value="driver">driver</option>
+        </select>
+        <button id="videoStart">Start</button>
+        <button id="videoStop">Stop</button>
+        <span id="videoMsg" class="muted"></span>
+      </div>
+      <dl class="inline">
+        <dt>active</dt><dd data-field="video.active" data-format="bool"></dd>
+        <dt>viewers</dt><dd data-field="video.viewers"></dd>
+        <dt>session</dt><dd data-field="video.sessionS" data-format="sec"></dd>
+        <dt>last stop</dt><dd data-field="video.lastStopReason"></dd>
+        <dt>cooldown</dt><dd data-field="video.cooldownS" data-format="sec"></dd>
+        <dt>avg model time</dt><dd data-field="video.guard.avgModelExecS" data-format="ms"></dd>
+        <dt>limit</dt><dd data-field="video.guard.execLimitS" data-format="ms"></dd>
+      </dl>
+      <canvas id="video" width="1280" height="720"></canvas>
+    </section>
+
+    <section class="card wide">
+      <details>
+        <summary>Raw snapshot</summary>
+        <pre id="raw"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@ from openpilot.system.manager.process import PythonProcess, NativeProcess, Daemo
 from openpilot.common.hardware.hw import Paths
 
 from openpilot.sunnypilot.mapd.mapd_manager import MAPD_PATH
+from openpilot.sunnypilot.headunit.process_hooks import HEADUNIT_ENABLED, headunit_encoderd_cmdline, headunit_video
 
 from openpilot.sunnypilot.models.helpers import get_active_model_runner
 from openpilot.sunnypilot.sunnylink.utils import sunnylink_need_register, sunnylink_ready, use_sunnylink_uploader
@@ -199,6 +200,10 @@ procs += [
 
   # locationd
   NativeProcess("locationd_llk", "openpilot/sunnypilot/selfdrive/locationd", ["./locationd"], only_onroad),
+
+  # head unit bridge: telemetry always, encoder only during a video session
+  PythonProcess("headunitd", "openpilot.sunnypilot.headunit.headunitd", always_run, enabled=HEADUNIT_ENABLED),
+  NativeProcess("headunit_encoderd", "openpilot/system/loggerd", headunit_encoderd_cmdline(), headunit_video, enabled=HEADUNIT_ENABLED),
 ]
 
 if os.path.exists("../../sunnypilot/sunnylink/uploader.py"):
