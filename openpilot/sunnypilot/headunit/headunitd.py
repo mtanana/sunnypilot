@@ -18,6 +18,7 @@ from openpilot.sunnypilot.headunit import mdns
 from openpilot.sunnypilot.headunit.config import HeadUnitConfig
 from openpilot.sunnypilot.headunit.guards import LoadGuard
 from openpilot.sunnypilot.headunit.hub import TelemetryHub
+from openpilot.sunnypilot.headunit.log_jobs import LogExports
 from openpilot.sunnypilot.headunit.server import HeadUnitServer
 from openpilot.sunnypilot.headunit.telemetry import SCHEMA_VERSION, SERVICES, TelemetryCollector
 from openpilot.sunnypilot.headunit.video import VideoController, VideoForwarder
@@ -37,6 +38,7 @@ class HeadUnitDaemon:
     self.guard = LoadGuard(config)
     self.video = VideoController(config, self.guard)
     self.forwarder = VideoForwarder(self.video)
+    self.exports = LogExports(config)
     self.server: HeadUnitServer | None = None
 
     self._started = False
@@ -71,6 +73,7 @@ class HeadUnitDaemon:
         self.video.wake.clear()
     finally:
       mdns.stop()
+      self.exports.shutdown()
       self.forwarder.stop()
       self.video.shutdown()
       self.server.shutdown()
@@ -83,6 +86,7 @@ class HeadUnitDaemon:
 
     self.guard.add_sample(now, *self.collector.guard_inputs(self.sm))
     self.video.tick(now, self._started, self._live_streaming)
+    self.exports.tick(self._started)
 
     if self.hub.wanted:
       self.hub.publish(self.collector.build(self.sm, now, self._is_metric, self.video.status(now)))
@@ -97,7 +101,7 @@ class HeadUnitDaemon:
   def _bind(self) -> HeadUnitServer:
     while True:
       try:
-        return HeadUnitServer(self.config, self.hub, self.video, self.status)
+        return HeadUnitServer(self.config, self.hub, self.video, self.exports, self.status)
       except OSError:
         cloudlog.exception(f"headunitd: can't bind {self.config.bind}:{self.config.port}, retrying")
         time.sleep(BIND_RETRY_S)

@@ -8,6 +8,13 @@ HTTP endpoints for the head unit bridge (stdlib only, one thread per connection)
   GET  /video?camera=road|wide|driver&format=framed|raw
                               H.264 stream; connecting starts video, the last viewer leaving stops it
   POST /video/stop            stop video now
+  GET  /logs/routes           local routes + current export job (sunnyhead Logs view)
+  GET  /logs/exports          finished .shlog files kept on the device
+  POST /logs/export?route=R&start=A&end=B&preset=long|all
+                              start an export (202 + job); 409 {"reason"} if refused
+  GET  /logs/job?id=X         export job progress
+  POST /logs/job/cancel?id=X  stop an export
+  GET  /logs/file?name=N      download a finished .shlog
 
 No login. Requests from public (globally routable) addresses are refused unless
 allow_public_clients is set.
@@ -16,6 +23,7 @@ import ipaddress
 import json
 import mimetypes
 import os
+import shutil
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -24,6 +32,7 @@ from openpilot.common.swaglog import cloudlog
 
 from openpilot.sunnypilot.headunit.config import HeadUnitConfig
 from openpilot.sunnypilot.headunit.hub import TelemetryHub
+from openpilot.sunnypilot.headunit.log_jobs import ExportRefused, LogExports
 from openpilot.sunnypilot.headunit.video import VideoController, VideoUnavailable
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
@@ -60,10 +69,11 @@ class HeadUnitServer(ThreadingHTTPServer):
   daemon_threads = True
   allow_reuse_address = True
 
-  def __init__(self, config: HeadUnitConfig, hub: TelemetryHub, video: VideoController, status_fn):
+  def __init__(self, config: HeadUnitConfig, hub: TelemetryHub, video: VideoController, exports: LogExports, status_fn):
     self.config = config
     self.hub = hub
     self.video = video
+    self.exports = exports
     self.status_fn = status_fn
     self.static_files = list_static_files()
     super().__init__((config.bind, config.port), HeadUnitRequestHandler)
@@ -102,6 +112,8 @@ class HeadUnitRequestHandler(BaseHTTPRequestHandler):
       elif method == "POST" and url.path == "/video/stop":
         self.server.video.request_stop("user")
         self._json({"ok": True})
+      elif url.path.startswith("/logs/"):
+        self._logs(method, url.path, query)
       elif method == "GET" and url.path in self.server.static_files:
         self._static(self.server.static_files[url.path])
       else:
@@ -111,14 +123,63 @@ class HeadUnitRequestHandler(BaseHTTPRequestHandler):
     except Exception:
       cloudlog.exception(f"headunitd: error handling {method} {url.path}")
 
-  def _headers(self, status: int, content_type: str, length: int | None = None) -> None:
+  def _headers(self, status: int, content_type: str, length: int | None = None, filename: str | None = None) -> None:
     self.send_response(status)
     self.send_header("Content-Type", content_type)
     self.send_header("Cache-Control", "no-store")
     self.send_header("Access-Control-Allow-Origin", "*")
     if length is not None:
       self.send_header("Content-Length", str(length))
+    if filename is not None:
+      self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
     self.end_headers()
+
+  def _logs(self, method: str, path: str, query: dict) -> None:
+    exports = self.server.exports
+
+    def arg(name: str) -> str | None:
+      return query.get(name, [None])[0]
+
+    def int_arg(name: str) -> int | None:
+      value = arg(name)
+      if value is None or value == "":
+        return None
+      try:
+        return int(value)
+      except ValueError:
+        raise ExportRefused(f"bad_{name}", 400) from None
+
+    try:
+      if method == "GET" and path == "/logs/routes":
+        self._json(exports.overview())
+      elif method == "GET" and path == "/logs/exports":
+        self._json({"exports": exports.exports()})
+      elif method == "POST" and path == "/logs/export":
+        job = exports.start(arg("route") or "", int_arg("start"), int_arg("end"), arg("preset") or "long")
+        self._json(job.to_dict(), 202)
+      elif method == "GET" and path == "/logs/job":
+        self._job_reply(exports.job(arg("id") or ""))
+      elif method == "POST" and path == "/logs/job/cancel":
+        self._job_reply(exports.cancel(arg("id") or ""))
+      elif method == "GET" and path == "/logs/file":
+        name = arg("name") or ""
+        fn = exports.file_path(name)
+        if fn is None:
+          self._json({"error": "not found"}, 404)
+          return
+        with open(fn, "rb") as f:
+          self._headers(200, "application/octet-stream", os.fstat(f.fileno()).st_size, filename=name)
+          shutil.copyfileobj(f, self.wfile, 256 * 1024)
+      else:
+        self._json({"error": "not found"}, 404)
+    except ExportRefused as e:
+      self._json({"error": "refused", "reason": e.reason, "detail": e.detail}, e.status)
+
+  def _job_reply(self, job) -> None:
+    if job is None:
+      self._json({"error": "no such job"}, 404)
+    else:
+      self._json(job.to_dict())
 
   def _json(self, obj, status: int = 200) -> None:
     body = json.dumps(obj).encode()

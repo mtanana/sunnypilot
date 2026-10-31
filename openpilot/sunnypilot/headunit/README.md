@@ -24,6 +24,11 @@ a client is listening. The encoder only runs while a `/video` viewer is connecte
 | `GET /telemetry?hz=N` | Server-Sent Events, `data: <json>` per snapshot, N = 0.5..20 |
 | `GET /video?camera=road\|wide\|driver&format=framed\|raw` | H.264. Connecting starts a session; 409 + `{"reason": ...}` if refused |
 | `POST /video/stop` | Stop the session now |
+| `GET /logs/routes` | Local routes (`segments`, `qlogOnly`, `bytes`, approx. `startWallS`/`endWallS`), `onroad`, `exportsAllowed`, current `job` |
+| `GET /logs/exports` | Finished `.shlog` files kept on the device |
+| `POST /logs/export?route=R&start=A&end=B&preset=long\|all` | Start an export (202 + job). 409/400/404 + `{"reason": ...}`: `onroad`, `busy`, `too_many_segments`, `no_route`, ... |
+| `GET /logs/job?id=X` / `POST /logs/job/cancel?id=X` | Progress (`state` running/done/error/cancelled, `done`/`total` segments) / stop |
+| `GET /logs/file?name=N` | Download a finished `.shlog` |
 
 There's no login. Requests from globally routable addresses get 403 unless
 `allow_public_clients` is set; LAN, link-local, hotspot and tailscale (100.64/10) clients are fine.
@@ -111,3 +116,15 @@ python -m openpilot.sunnypilot.headunit.log_export --dump drive.shlog    # list 
 - Format: gzip of `"SHLG" | u32 version | u32 header_len | header JSON | pad to 4 | float32 data`.
   Each channel stores `t[n]` (s since the first event) then `v[n]`; runs of equal values keep only
   their endpoints. See the module docstring.
+
+### Exporting from the app
+
+sunnyhead's Logs view → **From comma** lists the routes on the device and asks headunitd to export
+one (`/logs/*` endpoints above, `log_jobs.py`). headunitd runs `log_export.py` as a child process at
+nice 19, one export at a time, and keeps the newest `export_keep_files` results in `export_dir`
+(default `/data/headunit_exports`); asking for the same segments again reuses the file while the
+logs are unchanged. Exports are refused while the car is on and a running one is cancelled when it
+starts, because they compete with openpilot for CPU. Set `export_allow_onroad` to allow them anyway
+(e.g. parked with the engine running); the segment being recorded may then fail to export.
+At most `export_max_segments` (60) segments per export. On-device export speed hasn't been measured
+yet; `--preset long` is much less work than `all`, so the app defaults to it.

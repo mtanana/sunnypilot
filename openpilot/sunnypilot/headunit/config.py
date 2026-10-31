@@ -41,6 +41,12 @@ class HeadUnitConfig:
   guard_baseline_headroom: float = 1.25
   guard_frame_drop_perc: float = 0.5      # selfdrived soft-disables above 1.0
 
+  # on-demand .shlog exports for sunnyhead's Logs view (log_jobs.py)
+  export_dir: str = "/data/headunit_exports"
+  export_keep_files: int = 10
+  export_max_segments: int = 60
+  export_allow_onroad: bool = False       # exports compete with openpilot for CPU while driving
+
   @classmethod
   def load(cls, path: str | None = None) -> "HeadUnitConfig":
     path = path or os.environ.get("HEADUNIT_CONFIG", DEFAULT_CONFIG_PATH)
