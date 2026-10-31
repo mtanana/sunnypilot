@@ -84,3 +84,30 @@ curl -N "http://<comma-ip>:8090/telemetry?hz=2"
 ```
 
 On a PC, run `python -m openpilot.sunnypilot.headunit.headunitd` next to a replay to get live data.
+
+## Log export (sunnyhead offline analyzer)
+
+`log_export.py` converts rlogs / qlogs into a `.shlog` file that sunnyhead's **Logs** view opens
+(drag-and-drop on desktop, Open button anywhere). It runs on the comma or on a PC with this checkout.
+
+```bash
+# on the device: every local segment of a route, or one segment
+python -m openpilot.sunnypilot.headunit.log_export 0000002a--1a2b3c4d5e --preset long
+python -m openpilot.sunnypilot.headunit.log_export 0000002a--1a2b3c4d5e--7
+# files / segment dirs anywhere, or anything LogReader accepts (connect URLs, route ids)
+python -m openpilot.sunnypilot.headunit.log_export ~/realdata/<route>--4 ~/realdata/<route>--5 -o drive.shlog
+python -m openpilot.sunnypilot.headunit.log_export --dump drive.shlog    # list channels
+```
+
+- Every scalar field of every service becomes a channel named by its capnp path
+  (`carControl.actuators.accel`, `pandaStates[0].ignitionLine`). Lists up to `--max-list` are
+  flattened by index; text fields and lists of named events (`onroadEvents`) become text channels;
+  `<service>._valid` tracks `valid`. Bookmarks (`userBookmark`, `bookmarkButton`) become marks.
+- CAN is decoded with the car's DBC (from carParams, or `--dbc`): `sendcan<bus>.<msg>.<sig>` is what
+  openpilot commanded, `can<bus>.<msg>.<sig>` what was received (TX echoes skipped). `--can auto`
+  decodes a per-brand list (Subaru: throttle, RPM, brake, ES_* messages), `--can all` the whole DBC.
+- `--preset long` keeps only longitudinal services (smaller files for long drives). `--include` /
+  `--exclude` filter channel paths by regex, `--max-hz` decimates.
+- Format: gzip of `"SHLG" | u32 version | u32 header_len | header JSON | pad to 4 | float32 data`.
+  Each channel stores `t[n]` (s since the first event) then `v[n]`; runs of equal values keep only
+  their endpoints. See the module docstring.
