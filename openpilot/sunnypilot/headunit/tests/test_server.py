@@ -1,7 +1,9 @@
+import http.client
 import json
+import threading
 
 from openpilot.sunnypilot.headunit.config import HeadUnitConfig
-from openpilot.sunnypilot.headunit.server import client_allowed, list_static_files
+from openpilot.sunnypilot.headunit.server import HeadUnitServer, client_allowed, list_static_files
 
 
 class TestConfig:
@@ -37,3 +39,33 @@ class TestServerHelpers:
     for path in ("/", "/index.html", "/css/app.css", "/js/main.js", "/js/VideoPlayer.js"):
       assert path in files
     assert not any(".." in p for p in files)
+
+
+class TestCors:
+  def test_preflight(self):
+    server = HeadUnitServer(HeadUnitConfig(bind="127.0.0.1", port=0), None, None, None, lambda: {"ok": True})
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+      conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+      conn.request("OPTIONS", "/telemetry?hz=20", headers={
+        "Origin": "http://localhost:1234",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "cache-control",
+        "Access-Control-Request-Private-Network": "true",
+      })
+      resp = conn.getresponse()
+      assert resp.status == 204
+      assert resp.getheader("Access-Control-Allow-Origin") == "*"
+      assert resp.getheader("Access-Control-Allow-Headers") == "cache-control"
+      assert resp.getheader("Access-Control-Allow-Private-Network") == "true"
+      assert "POST" in resp.getheader("Access-Control-Allow-Methods")
+      conn.close()
+
+      conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+      conn.request("GET", "/status")
+      resp = conn.getresponse()
+      assert resp.status == 200 and resp.getheader("Access-Control-Allow-Origin") == "*"
+      conn.close()
+    finally:
+      server.shutdown()
+      server.server_close()

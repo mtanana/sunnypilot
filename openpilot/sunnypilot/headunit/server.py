@@ -90,6 +90,21 @@ class HeadUnitRequestHandler(BaseHTTPRequestHandler):
   def do_POST(self) -> None:
     self._dispatch("POST")
 
+  def do_OPTIONS(self) -> None:
+    # CORS preflight, needed when sunnyhead runs as a web build (browser origin != comma)
+    if not client_allowed(self.client_address[0], self.server.config.allow_public_clients):
+      self._json({"error": "forbidden"}, 403)
+      return
+    self.send_response(204)
+    self.send_header("Access-Control-Allow-Origin", "*")
+    self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    self.send_header("Access-Control-Allow-Headers", self.headers.get("Access-Control-Request-Headers") or "*")
+    if self.headers.get("Access-Control-Request-Private-Network"):
+      self.send_header("Access-Control-Allow-Private-Network", "true")
+    self.send_header("Access-Control-Max-Age", "600")
+    self.send_header("Content-Length", "0")
+    self.end_headers()
+
   def log_message(self, format: str, *args: object) -> None:  # noqa: A002  # stdlib override
     pass
 
